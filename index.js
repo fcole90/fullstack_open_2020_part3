@@ -46,6 +46,7 @@ morgan.token('body', (req, res) => {
 
 // --- Middleware ---
 app.use(cors())
+app.use(express.static('build'))
 app.use(express.json())
 
 // const requestLogger = (request, response, next) => {
