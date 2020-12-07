@@ -1,44 +1,25 @@
+require('dotenv').config()
 const cors = require('cors')
 const express = require('express')
+const mongoose = require('mongoose')
 const morgan = require('morgan')
+
+const Person = require("./models/person")
 
 const app = express()
 
-let persons = [
-  { 
-    "name": "Arto Hellas", 
-    "number": "040-123456",
-    "id": 1
-  },
-  { 
-    "name": "Ada Lovelace", 
-    "number": "39-44-5323523",
-    "id": 2
-  },
-  { 
-    "name": "Dan Abramov", 
-    "number": "12-43-234345",
-    "id": 3
-  },
-  { 
-    "name": "Mary Poppendieck", 
-    "number": "39-23-6423122",
-    "id": 4
-  }
-]
+// // --- Helper functions ---
+// const generateId = () => {
+//   const currentIds = persons.map(person => person.id)
 
-// --- Helper functions ---
-const generateId = () => {
-  const currentIds = persons.map(person => person.id)
+//   while(true) {
+//     const newId = Math.floor(Math.random() * Math.floor(999999))
 
-  while(true) {
-    const newId = Math.floor(Math.random() * Math.floor(999999))
-
-    if (!currentIds.includes(newId))  {
-      return newId
-    }
-  }
-}
+//     if (!currentIds.includes(newId))  {
+//       return newId
+//     }
+//   }
+// }
 
 morgan.token('body', (req, res) => {
   return JSON.stringify(req.body)
@@ -49,15 +30,7 @@ app.use(cors())
 app.use(express.static('build'))
 app.use(express.json())
 
-// const requestLogger = (request, response, next) => {
-//   console.log('Method:', request.method)
-//   console.log('Path:  ', request.path)
-//   console.log('Body:  ', request.body)
-//   console.log('---')
-//   next()
-// }
-// app.use(requestLogger)
-
+// Logger with custom args
 app.use(morgan(':method :url :status :res[content-length] - :response-time ms :body'))
 
 // *--------------*
@@ -65,11 +38,17 @@ app.use(morgan(':method :url :status :res[content-length] - :response-time ms :b
 // *--------------*
 
 // --- DELETE ---
-app.delete('/api/persons/:id', (request, response) => {
-  const id = Number(request.params.id)
-
-  persons = persons.filter(person => person.id !== id)
-  response.status(204).end()
+app.delete('/api/persons/:id', (request, response, next) => {
+  Person.findByIdAndRemove(request.params.id)
+    .then(result => {
+      console.log("DELETE Result:", result)
+      if (result) {
+        response.status(204).end()
+      } else {
+        response.status(404).end()
+      }
+    })
+    .catch(error => next(error))
 })
 
 
@@ -80,66 +59,97 @@ app.get('/', (request, response) => {
 
 
 app.get('/info', (request, response) => {
-  response.send(
-  `<p>Phonebook has info for ${persons.length} people</p>` +
-  `<p>${new Date()}</p>`
-  )
+  Person.find({})
+  .then(people => {
+    response.send(
+      `<p>Phonebook has info for ${people.length} people</p>` +
+      `<p>${new Date()}</p>`
+      )
+  })
+  .catch(error => next(error))
 })
 
-app.get('/api/persons', (request, response) => {
-  response.json(persons)
+app.get('/api/persons', (request, response, next) => {
+  Person.find({})
+  .then(people => {
+    response.json(people)
+  })
+  .catch(error => next(error))
 })
 
-app.get('/api/persons/:id', (request, response) => {
-  const id = Number(request.params.id)
-  const person = persons.find(note => note.id === id)
-  if (person) {
-    response.json(person)
-  } else {
-    response.status(404).end()
-  }
+app.get('/api/persons/:id', (request, response, next) => {
+  Person.findById(request.params.id).then(person => {
+    if (person) {
+      response.json(person)
+    } else {
+      response.status(404).end()
+    }
+  })
+  .catch(error => next(error))
 })
 
 // --- POST ---
-app.post('/api/persons', (request, response) => {
-  const body = request.body
+app.post('/api/persons', (request, response, next) => {
+  const {name, number} = request.body
 
-  if (!body.name) {
-    return response.status(400).json({ 
-      error: 'Missing name'
-    })
-  }
 
-  if (!body.number) {
-    return response.status(400).json({ 
-      error: 'Missing number'
-    })
-  }
+  new Person({
+    name,
+    number
+  })
+  .save()
+  .then(result => {
+    console.log(`added ${name} number ${number} to phonebook`)
+    response.json(result)
+  })
+  .catch(error => next(error))
 
-  if (persons.some(person => person.name === body.name)) {
-    return response.status(400).json({ 
-      error: `name must be unique - '${body.name}' already exists`
-    })
-  }
+})
 
-  const {name, number} = body
+// --- PUT ---
+app.put('/api/persons/:id', (request, response, next) => {
+  const {name, number} = request.body
   const person = {
     name,
-    number,
-    id: generateId(),
+    number
   }
 
-  persons = persons.concat(person)
-
-  response.json(person)
+  Person.findByIdAndUpdate(request.params.id, person, {
+      new: true, 
+      runValidators: true, 
+      context: 'query' 
+    })
+    .then(updatedPerson => {
+      if (updatedPerson) {
+        response.json(updatedPerson)
+      } else {
+        response.status(404).end()
+      }
+      
+    })
+    .catch(error => next(error))
 })
 
 // After routes Middleware
+// Needs to be after routes, otherwise it would answer before them
 const unknownEndpoint = (request, response) => {
+  console.log("Unknown endpoint:", response)
   response.status(404).send({ error: 'unknown endpoint' })
 }
-
 app.use(unknownEndpoint)
+
+// Generic error handler
+const errorHandler = (error, request, response, next) => {
+  console.log("Error Handler:", error)
+  if (error.name === "ValidationError") {
+    response.status(500).send({ error: error.message })
+  }  else {
+    response.status(500).send({ error: `server error: ${error.name}` })
+  }
+  
+  next(error)
+}
+app.use(errorHandler)
 
 
 
