@@ -1,29 +1,15 @@
 require('dotenv').config()
 const cors = require('cors')
 const express = require('express')
-const mongoose = require('mongoose')
 const morgan = require('morgan')
 
-const Person = require("./models/person")
+const Person = require('./models/person')
 
 const app = express()
 
-// // --- Helper functions ---
-// const generateId = () => {
-//   const currentIds = persons.map(person => person.id)
-
-//   while(true) {
-//     const newId = Math.floor(Math.random() * Math.floor(999999))
-
-//     if (!currentIds.includes(newId))  {
-//       return newId
-//     }
-//   }
-// }
-
-morgan.token('body', (req, res) => {
+morgan.token('body', (req) => {
   return JSON.stringify(req.body)
- })
+})
 
 // --- Middleware ---
 app.use(cors())
@@ -41,7 +27,7 @@ app.use(morgan(':method :url :status :res[content-length] - :response-time ms :b
 app.delete('/api/persons/:id', (request, response, next) => {
   Person.findByIdAndRemove(request.params.id)
     .then(result => {
-      console.log("DELETE Result:", result)
+      console.log('DELETE Result:', result)
       if (result) {
         response.status(204).end()
       } else {
@@ -58,23 +44,23 @@ app.get('/', (request, response) => {
 })
 
 
-app.get('/info', (request, response) => {
+app.get('/info', (request, response, next) => {
   Person.find({})
-  .then(people => {
-    response.send(
-      `<p>Phonebook has info for ${people.length} people</p>` +
+    .then(people => {
+      response.send(
+        `<p>Phonebook has info for ${people.length} people</p>` +
       `<p>${new Date()}</p>`
       )
-  })
-  .catch(error => next(error))
+    })
+    .catch(error => next(error))
 })
 
 app.get('/api/persons', (request, response, next) => {
   Person.find({})
-  .then(people => {
-    response.json(people)
-  })
-  .catch(error => next(error))
+    .then(people => {
+      response.json(people)
+    })
+    .catch(error => next(error))
 })
 
 app.get('/api/persons/:id', (request, response, next) => {
@@ -85,47 +71,47 @@ app.get('/api/persons/:id', (request, response, next) => {
       response.status(404).end()
     }
   })
-  .catch(error => next(error))
+    .catch(error => next(error))
 })
 
 // --- POST ---
 app.post('/api/persons', (request, response, next) => {
-  const {name, number} = request.body
+  const { name, number } = request.body
 
 
   new Person({
     name,
     number
   })
-  .save()
-  .then(result => {
-    console.log(`added ${name} number ${number} to phonebook`)
-    response.json(result)
-  })
-  .catch(error => next(error))
+    .save()
+    .then(result => {
+      console.log(`added ${name} number ${number} to phonebook`)
+      response.json(result)
+    })
+    .catch(error => next(error))
 
 })
 
 // --- PUT ---
 app.put('/api/persons/:id', (request, response, next) => {
-  const {name, number} = request.body
+  const { name, number } = request.body
   const person = {
     name,
     number
   }
 
   Person.findByIdAndUpdate(request.params.id, person, {
-      new: true, 
-      runValidators: true, 
-      context: 'query' 
-    })
+    new: true,
+    runValidators: true,
+    context: 'query'
+  })
     .then(updatedPerson => {
       if (updatedPerson) {
         response.json(updatedPerson)
       } else {
         response.status(404).end()
       }
-      
+
     })
     .catch(error => next(error))
 })
@@ -133,24 +119,23 @@ app.put('/api/persons/:id', (request, response, next) => {
 // After routes Middleware
 // Needs to be after routes, otherwise it would answer before them
 const unknownEndpoint = (request, response) => {
-  console.log("Unknown endpoint:", response)
+  console.log('Unknown endpoint:', response)
   response.status(404).send({ error: 'unknown endpoint' })
 }
 app.use(unknownEndpoint)
 
 // Generic error handler
 const errorHandler = (error, request, response, next) => {
-  console.log("Error Handler:", error)
-  if (error.name === "ValidationError") {
+  console.log('Error Handler:', error)
+  if (error.name === 'ValidationError') {
     response.status(500).send({ error: error.message })
   }  else {
     response.status(500).send({ error: `server error: ${error.name}` })
   }
-  
+
   next(error)
 }
 app.use(errorHandler)
-
 
 
 // --- Main ---

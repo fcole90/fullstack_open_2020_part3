@@ -27,18 +27,18 @@ const Person = mongoose.model('Person', personSchema)
 
 const loadPeople = () => {
   Person.find({})
-  .then(result => {
-    console.log("phonebook:");
-    result.forEach(({name, number}) => {
-      console.log(name, number)
+    .then(result => {
+      console.log('phonebook:')
+      result.forEach(({ name, number }) => {
+        console.log(name, number)
+      })
     })
-  })
-  .catch(err => {
-    console.err(err)
-  })
-  .finally(() => {
-    mongoose.connection.close()
-  })
+    .catch(err => {
+      console.err(err)
+    })
+    .finally(() => {
+      mongoose.connection.close()
+    })
 }
 
 const addPerson = (name, number) => {
@@ -46,16 +46,16 @@ const addPerson = (name, number) => {
     name,
     number
   })
-  .save()
-  .then(result => {
-    console.log(`added ${name} number ${number} to phonebook`)
-  })
-  .catch(err => {
-    console.err(err)
-  })
-  .finally(() => {
-    mongoose.connection.close()
-  })
+    .save()
+    .then(() => {
+      console.log(`added ${name} number ${number} to phonebook`)
+    })
+    .catch(err => {
+      console.err(err)
+    })
+    .finally(() => {
+      mongoose.connection.close()
+    })
 }
 
 
